@@ -68,6 +68,8 @@ def create_webapp(settings: Settings, services: Services, bot: Any | None = None
     app.router.add_get("/api/keys/{key_id}/share", api_key_share_link)
     app.router.add_get("/api/keys/{key_id}/traffic", api_key_traffic)
     app.router.add_get("/api/keys/{key_id}/download", api_download_key_config)
+    app.router.add_get("/api/keys/{key_id}/qr", api_key_qr)
+    app.router.add_get("/api/keys/{key_id}/awg-status", api_key_awg_status)
     app.router.add_post("/api/keys/{key_id}/revoke", api_revoke_key)
     app.router.add_post("/api/keys/{key_id}/delete", api_delete_key)
     app.router.add_static("/static", STATIC_DIR, show_index=False)
@@ -1220,6 +1222,161 @@ async def api_download_key_config(request: web.Request) -> web.Response:
             "Cache-Control": "no-store",
         },
     )
+
+
+async def api_key_qr(request: web.Request) -> web.Response:
+    import io
+    import qrcode
+    from qrcode.image.svg import SvgPathImage
+
+    user = _telegram_user(request)
+    services: Services = request.app["services"]
+
+    try:
+        key_id = int(request.match_info["key_id"])
+        key = await services.vpn_keys.get_for_actor(int(user["id"]), key_id)
+
+        if key.key_type != VpnKeyType.AWG:
+            return web.json_response({"ok": False, "error": "QR is available only for AWG keys"}, status=400)
+
+        config = await services.awg.get_awg_client_config(int(user["id"]), key_id)
+
+        image = qrcode.make(config, image_factory=SvgPathImage)
+        buffer = io.BytesIO()
+        image.save(buffer)
+
+        return web.Response(
+            body=buffer.getvalue(),
+            content_type="image/svg+xml",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": f'inline; filename="awg-{key_id}-qr.svg"',
+            },
+        )
+    except ValueError:
+        return web.json_response({"ok": False, "error": "Invalid key id"}, status=400)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=403)
+
+
+async def api_key_awg_status(request: web.Request) -> web.Response:
+    import asyncio
+    import time
+
+    user = _telegram_user(request)
+    services: Services = request.app["services"]
+
+    try:
+        key_id = int(request.match_info["key_id"])
+        key = await services.vpn_keys.get_for_actor(int(user["id"]), key_id)
+
+        if key.key_type != VpnKeyType.AWG:
+            return web.json_response({"ok": False, "error": "Status is available only for AWG keys"}, status=400)
+
+        if not key.public_key:
+            return web.json_response({"ok": False, "error": "AWG public key is missing"}, status=400)
+
+        proc = await asyncio.create_subprocess_exec(
+            "awg",
+            "show",
+            services.settings.awg_interface,
+            "dump",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+
+        if proc.returncode != 0:
+            error = stderr.decode("utf-8", "replace").strip() or "awg show failed"
+            return web.json_response({"ok": False, "error": error}, status=503)
+
+        peer = _parse_awg_dump_peer(stdout.decode("utf-8", "replace"), key.public_key)
+        if peer is None:
+            return web.json_response(
+                {
+                    "ok": True,
+                    "status": {
+                        "available": False,
+                        "online": False,
+                        "latest_handshake": 0,
+                        "latest_handshake_human": "нет данных",
+                        "rx": 0,
+                        "tx": 0,
+                        "rx_human": "0 B",
+                        "tx_human": "0 B",
+                    },
+                }
+            )
+
+        latest = int(peer.get("latest_handshake") or 0)
+        now = int(time.time())
+        online = latest > 0 and now - latest <= 600
+
+        return web.json_response(
+            {
+                "ok": True,
+                "status": {
+                    "available": True,
+                    "online": online,
+                    "latest_handshake": latest,
+                    "latest_handshake_human": _format_handshake_age(latest, now),
+                    "rx": int(peer.get("rx") or 0),
+                    "tx": int(peer.get("tx") or 0),
+                    "rx_human": _format_bytes(int(peer.get("rx") or 0)),
+                    "tx_human": _format_bytes(int(peer.get("tx") or 0)),
+                    "endpoint": peer.get("endpoint") or "",
+                },
+            }
+        )
+    except ValueError:
+        return web.json_response({"ok": False, "error": "Invalid key id"}, status=400)
+    except Exception as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=403)
+
+
+def _parse_awg_dump_peer(output: str, public_key: str) -> dict[str, object] | None:
+    for line in output.splitlines()[1:]:
+        parts = line.split("\t")
+        if len(parts) < 8:
+            continue
+        if parts[0] != public_key:
+            continue
+        return {
+            "public_key": parts[0],
+            "endpoint": "" if parts[2] == "(none)" else parts[2],
+            "allowed_ips": parts[3],
+            "latest_handshake": int(parts[4] or 0),
+            "rx": int(parts[5] or 0),
+            "tx": int(parts[6] or 0),
+            "persistent_keepalive": parts[7],
+        }
+    return None
+
+
+def _format_handshake_age(timestamp: int, now: int) -> str:
+    if timestamp <= 0:
+        return "ещё не подключался"
+    seconds = max(0, now - timestamp)
+    if seconds < 60:
+        return f"{seconds} сек назад"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes} мин назад"
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours} ч назад"
+    days = hours // 24
+    return f"{days} дн назад"
+
+
+def _format_bytes(value: int) -> str:
+    units = ["B", "KB", "MB", "GB", "TB"]
+    amount = float(max(0, value))
+    for unit in units:
+        if amount < 1024 or unit == units[-1]:
+            return f"{amount:.1f} {unit}" if unit != "B" else f"{int(amount)} B"
+        amount /= 1024
+    return f"{value} B"
 
 
 async def api_revoke_key(request: web.Request) -> web.Response:

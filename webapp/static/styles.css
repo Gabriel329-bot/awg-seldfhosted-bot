@@ -360,3 +360,18 @@ body.screen-mode .card:last-child {
   margin-top: 8px;
   font-weight: 700;
 }
+
+.qr-image {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+  background: #ffffff;
+  padding: 12px;
+  border-radius: 16px;
+}
+
+.qr-image svg {
+  width: 100%;
+  height: auto;
+}

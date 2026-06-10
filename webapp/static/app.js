@@ -224,6 +224,10 @@ async function loadKeys() {
     const downloadButton = key.download_url && key.status === "active"
       ? `<button class="small-button secondary" onclick="downloadConfig(${key.id})">Скачать .conf</button>`
       : "";
+    const awgToolsButton = key.type === "awg" && key.status === "active"
+      ? `<button class="small-button secondary" onclick="showAwgQr(${key.id})">QR-код</button>
+         <button class="small-button secondary" onclick="refreshAwgStatus(${key.id})">Handshake</button>`
+      : "";
     const revokeButton = key.status === "active"
       ? `<button class="small-button danger" onclick="revokeKey(${key.id})">Отозвать</button>`
       : "";
@@ -245,6 +249,7 @@ async function loadKeys() {
         <div class="actions-row">
           ${shareButton}
           ${downloadButton}
+          ${awgToolsButton}
           <button class="small-button secondary" onclick="refreshTraffic(${key.id})">Обновить статистику</button>
           ${revokeButton}
           ${deleteButton}
@@ -925,3 +930,66 @@ document.querySelectorAll(".tile").forEach((button) => {
 loadModules();
 loadProfile();
 exitScreenMode();
+
+
+async function showAwgQr(keyId) {
+  setSection("QR-код AWG", "Загрузка QR-кода...");
+
+  try {
+    const response = await fetch("/api/keys/" + keyId + "/qr", {
+      headers: { "X-Telegram-Init-Data": initData },
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(function () { return {}; });
+      throw new Error(data.error || "не удалось загрузить QR-код");
+    }
+
+    const blob = await response.blob();
+    if (window.currentAwgQrUrl) {
+      URL.revokeObjectURL(window.currentAwgQrUrl);
+    }
+    window.currentAwgQrUrl = URL.createObjectURL(blob);
+
+    setSectionHtml("QR-код AWG", `
+      <p class="muted">Отсканируйте QR-код в клиенте AmneziaWG/WireGuard.</p>
+      <div class="key-card">
+        <img class="qr-image" src="${window.currentAwgQrUrl}" alt="AWG QR code">
+      </div>
+      <button class="small-button secondary" onclick="loadKeys()">Назад к ключам</button>
+    `);
+  } catch (error) {
+    setSectionHtml("QR-код AWG", `
+      <p>Ошибка: ${escapeHtml(error.message || "не удалось загрузить QR-код")}</p>
+      <button class="small-button secondary" onclick="loadKeys()">Назад</button>
+    `);
+  }
+}
+
+async function refreshAwgStatus(keyId) {
+  const box = document.getElementById("awg-status-" + keyId);
+  if (box) box.textContent = "AWG: обновляю handshake...";
+
+  const data = await api("/api/keys/" + keyId + "/awg-status");
+  if (!data.ok) {
+    if (box) box.textContent = "AWG: ошибка — " + (data.error || "не удалось обновить");
+    else tgAlert("Ошибка: " + (data.error || "не удалось обновить AWG status"), "Ошибка");
+    return;
+  }
+
+  const status = data.status || {};
+  const online = status.online ? "🟢 online" : "⚪ offline";
+
+  const html = ''
+    + '<b>AWG peer</b><br>'
+    + 'Статус: ' + online + '<br>'
+    + 'Handshake: ' + escapeHtml(status.latest_handshake_human || "нет данных") + '<br>'
+    + '↓ Получено: ' + escapeHtml(status.rx_human || "0 B") + '<br>'
+    + '↑ Отдано: ' + escapeHtml(status.tx_human || "0 B");
+
+  if (box) {
+    box.innerHTML = html;
+  } else {
+    tgAlert("Handshake: " + (status.latest_handshake_human || "нет данных"));
+  }
+}
