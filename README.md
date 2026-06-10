@@ -4,8 +4,6 @@
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Ubuntu_VDS-lightgrey.svg)
 
-🇬🇧 English documentation: [README.md](README.md)
-
 Telegram-бот для управления доступом к self-hosted VPN на Ubuntu VDS. Бот управляет пользователями, одобрением заявок на доступ, ключами Xray VLESS Reality и AmneziaWG, отзывом/удалением ключей, ведет журнал аудита и собирает базовую статистику трафика. 
 
 Проект рассчитан на развёртывание на одном сервере **без** Docker, Redis, PostgreSQL или тяжелых ORM.
