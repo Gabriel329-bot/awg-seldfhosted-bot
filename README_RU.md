@@ -1,24 +1,28 @@
 # VPN Telegram WebApp Bot
 
-Telegram-бот и Telegram WebApp-панель для управления доступом к self-hosted VPN на Linux/VDS.
+Telegram-бот и Telegram WebApp-панель для управления self-hosted VPN на Linux/VDS.
 
-Проект предназначен для развёртывания на одном сервере без Docker, PostgreSQL и Redis.  
+Проект рассчитан на развёртывание на одном сервере без Docker, PostgreSQL и Redis.  
 Основной интерфейс пользователя и администратора — Telegram WebApp, открываемый из Telegram-бота.
 
 ## Возможности
 
 - Telegram WebApp-кабинет внутри Telegram.
+- WebApp-only режим: обычный Telegram-бот используется как точка входа в кабинет.
 - Регистрация пользователей и заявки на доступ.
 - Админ-панель в WebApp.
-- Управление VPN-ключами Xray VLESS Reality.
-- Управление ключами AmneziaWG.
-- Поддержка SOCKS5/Dante proxy.
-- Поддержка Telegram MTProto proxy.
+- Создание, просмотр, отзыв и удаление собственных VPN-ключей пользователем.
+- Управление ключами пользователей администратором.
+- Xray VLESS Reality.
+- AmneziaWG / AmneziaWG 2.0.
+- QR-код для AWG-конфига.
+- AWG latest handshake, online/offline status и rx/tx traffic.
+- SOCKS5/Dante proxy.
+- Telegram MTProto Proxy.
 - SQLite-хранилище.
 - Audit log.
-- systemd-сервис.
-- nginx reverse proxy для WebApp.
-- Поддержка root+Xray API mode и non-root helper mode.
+- systemd deployment.
+- nginx reverse proxy для Telegram WebApp.
 
 ## Архитектура
 
@@ -42,17 +46,17 @@ services / SQLite / Xray / AmneziaWG / Proxy
 
 
 Порт	Назначение
-443/tcp	Xray Reality
+443/tcp	Xray VLESS Reality
 8443/tcp	Telegram WebApp через nginx
 8088/tcp	Локальный aiohttp backend WebApp
-9444/tcp	MTProto proxy, если включён
+9444/tcp	MTProto Proxy, если включён
 
-Если Xray не занимает 443, WebApp можно размещать на обычном HTTPS 443.
+Если Xray не занимает 443, WebApp можно разместить на обычном HTTPS 443.
 
 
 Структура проекта
 
-main.py                    # Точка входа: bot + WebApp + background tasks
+main.py                    # Точка входа: Telegram bot + WebApp + background tasks
 bot/                       # Telegram bot: /start и служебная логика
 webapp/                    # aiohttp WebApp backend/API
 webapp/auth.py             # Проверка Telegram WebApp initData
@@ -60,7 +64,7 @@ webapp/static/             # Frontend WebApp: HTML/CSS/JS
 services/                  # Бизнес-логика
 repositories/              # SQLite repositories
 adapters/                  # Xray/AWG/systemctl/shell adapters
-config/settings.py         # Загрузка и валидация env
+config/settings.py         # Загрузка и валидация переменных окружения
 db/schema.sql              # SQLite schema
 deploy/                    # systemd/nginx/helper examples
 scripts/                   # Runtime helper scripts
@@ -83,7 +87,7 @@ HTTPS-сертификат Let's Encrypt.
 Установленный и настроенный Xray и/или AmneziaWG, если используются соответствующие протоколы.
 
 
-Установка
+Быстрая установка
 
 1. Клонировать проект
 
@@ -91,7 +95,7 @@ sudo install -o root -g root -m 0755 -d /opt/vpn-service
 sudo git clone https://github.com/Gabriel329-bot/awg-seldfhosted-bot.git /opt/vpn-service
 cd /opt/vpn-service
 
-2. Создать виртуальное окружение
+2. Создать Python venv
 
 sudo python3.12 -m venv .venv
 sudo .venv/bin/pip install --upgrade pip
@@ -119,7 +123,15 @@ WEBAPP_URL=https://your-domain.example:8443/
 WEBAPP_HOST=127.0.0.1
 WEBAPP_PORT=8088
 
-Для Xray root+api режима:
+4. Подготовить runtime-каталоги
+
+sudo install -o root -g root -m 0700 -d /opt/vpn-service/data
+sudo install -o root -g root -m 0700 -d /opt/vpn-service/logs
+sudo chmod 600 /opt/vpn-service/.env
+
+Настройка Xray
+
+Для root+api режима:
 
 
 PRIVILEGE_HELPERS_ENABLED=false
@@ -129,22 +141,81 @@ XRAY_SERVICE_NAME=xray
 XRAY_INBOUND_TAG=vless-in
 XRAY_PUBLIC_HOST=your-domain.example
 XRAY_PUBLIC_PORT=443
-XRAY_REALITY_PUBLIC_KEY=<public_key>
-XRAY_SNI=<sni>
-XRAY_SHORT_ID=<short_id>
+XRAY_REALITY_PUBLIC_KEY=<xray_reality_public_key>
+XRAY_SNI=<xray_reality_sni>
+XRAY_SHORT_ID=<xray_short_id>
 XRAY_STATS_SERVER=127.0.0.1:10085
 
-Если включён MTProto, не используйте порт 8443, если на нём работает WebApp:
+Xray должен иметь VLESS inbound с tag из XRAY_INBOUND_TAG и локальный API inbound для XRAY_STATS_SERVER.
+
+
+Проверьте Xray:
+
+
+sudo xray run -test -config /usr/local/etc/xray/config.json
+sudo systemctl restart xray
+sudo systemctl status xray --no-pager
+
+Настройка AmneziaWG
+
+Основные переменные:
+
+
+AWG_CONFIG_PATH=/etc/amnezia/amneziawg/awg0.conf
+AWG_INTERFACE=awg0
+AWG_NETWORK=10.0.0.0/24
+AWG_SERVER_ADDRESS=10.0.0.1
+AWG_ENDPOINT_HOST=your-domain.example
+AWG_ENDPOINT_PORT=<awg_udp_port>
+AWG_SERVER_PUBLIC_KEY=<awg_server_public_key>
+AWG_DNS=1.1.1.1
+AWG_ALLOWED_IPS=0.0.0.0/0, ::/0
+AWG_PERSISTENT_KEEPALIVE=25
+AWG_USE_PRESHARED_KEY=true
+
+Для AWG WebApp показывает:
+
+
+
+client config;
+
+download .conf;
+
+QR-код;
+
+latest handshake;
+
+online/offline status;
+
+rx/tx traffic.
+
+
+Для чтения handshake используется:
+
+
+awg show awg0 dump
+
+Проверьте AWG:
+
+
+sudo awg show awg0
+sudo awg-quick strip /etc/amnezia/amneziawg/awg0.conf >/dev/null
+
+Настройка MTProto
+
+Если включён MTProto, не занимайте порт 8443, если WebApp работает на 8443.
+
+
+Рекомендуемый пример:
 
 
 MTPROTO_ENABLED=true
+MTPROTO_MODE=managed
+MTPROTO_HOST=your-domain.example
 MTPROTO_PORT=9444
 
-4. Подготовить runtime-каталоги
+Если MTProxy уже использует 8443, перенесите его на 9444, чтобы освободить 8443 для Telegram WebApp.
 
-sudo install -o root -g root -m 0700 -d /opt/vpn-service/data
-sudo install -o root -g root -m 0700 -d /opt/vpn-service/logs
-sudo chmod 600 /opt/vpn-service/.env
 
 systemd
 
@@ -161,9 +232,14 @@ sudo systemctl enable --now vpn-bot
 sudo systemctl status vpn-bot --no-pager
 sudo journalctl -u vpn-bot -n 100 --no-pager
 
+Перезапуск:
+
+
+sudo systemctl restart vpn-bot
+
 nginx для WebApp
 
-Пример конфига есть в:
+Пример конфига:
 
 
 deploy/nginx-webapp.example.conf
@@ -178,7 +254,7 @@ sudo nano /etc/nginx/sites-enabled/vpn-webapp
 Замените example.com на ваш домен.
 
 
-Проверить и перезапустить nginx:
+Проверить и применить:
 
 
 sudo nginx -t
@@ -186,17 +262,23 @@ sudo systemctl reload nginx
 
 HTTPS certificate
 
-Если WebApp работает на 8443, сертификат всё равно выпускается для домена:
+Сертификат выпускается для домена, даже если WebApp открыт на 8443.
 
 
 sudo apt update
 sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.example
 
-После установки проверьте:
+Проверить:
 
 
 curl -I https://your-domain.example:8443/
+
+Проверить сертификат:
+
+
+echo | openssl s_client -connect your-domain.example:8443 -servername your-domain.example 2>/dev/null \
+  | openssl x509 -noout -subject -issuer -ext subjectAltName
 
 Firewall
 
@@ -221,8 +303,15 @@ BotFather / Telegram WebApp
 
 https://your-domain.example:8443/
 
-Важно: обычная URL-ссылка не передаёт полноценный Telegram WebApp initData.
-Открывать кабинет нужно через WebApp-кнопку бота или профиль/Menu Button.
+Важно:
+
+
+
+обычная URL-ссылка не передаёт полноценный Telegram WebApp initData;
+
+кабинет нужно открывать через WebApp-кнопку бота или Menu Button в профиле бота;
+
+если URL изменился, перезапустите vpn-bot и отправьте /start заново.
 
 
 Проверка запуска
@@ -246,11 +335,11 @@ sudo ss -tulnp | grep -E ':443|:8443|:9444|:8088'
 curl -I https://your-domain.example:8443/
 curl -I http://127.0.0.1:8088/
 
-Проверить сертификат:
+Проверить логи:
 
 
-echo | openssl s_client -connect your-domain.example:8443 -servername your-domain.example 2>/dev/null \
-  | openssl x509 -noout -subject -issuer -ext subjectAltName
+sudo journalctl -u vpn-bot -n 100 --no-pager
+sudo journalctl -u nginx -n 100 --no-pager
 
 Безопасность
 
@@ -258,23 +347,23 @@ echo | openssl s_client -connect your-domain.example:8443 -servername your-domai
 
 
 
-.env
+.env;
 
-Telegram bot token
+Telegram bot token;
 
-SQLite DB
+SQLite DB;
 
-logs
+logs;
 
-VPN private keys
+VPN private keys;
 
-AWG private/preshared keys
+AWG private/preshared keys;
 
-MTProto secrets
+MTProto secrets;
 
-SOCKS5 passwords
+SOCKS5 passwords;
 
-production configs
+production configs.
 
 
 Проверка перед коммитом:
@@ -300,7 +389,7 @@ telegram_id берётся только из проверенного initData;
 
 frontend не считается доверенным источником user id;
 
-пользователь может видеть только свои ключи/прокси;
+пользователь видит только свои ключи/прокси;
 
 пользователь может отзывать и удалять только собственные ключи;
 
@@ -329,11 +418,11 @@ bot_invalid
 
 
 
-WebApp URL указан как обычная ссылка, а не WebApp/Menu Button.
+WebApp URL указан как обычная ссылка, а не WebApp/Menu Button;
 
-Используется неподдерживаемый порт.
+используется неподдерживаемый порт;
 
-Кнопка создана старым сообщением до изменения URL.
+кнопка создана старым сообщением до изменения URL;
 
 URL в .env не совпадает с рабочим URL.
 
@@ -363,7 +452,7 @@ sudo systemctl restart vpn-bot
 не использовать обычную URL-кнопку.
 
 
-Проверить API:
+Проверка API:
 
 
 curl -i https://your-domain.example:8443/api/me
@@ -395,12 +484,42 @@ sudo ss -tulnp | grep -E ':443|:8443|:9444|:8088'
 Если 8443 занят MTProto, перенесите MTProto на 9444.
 
 
+QR-код AWG не открывается
+
+Проверьте зависимости:
+
+
+.venv/bin/python -c "import qrcode; print('qrcode ok')"
+
+Проверьте логи:
+
+
+sudo journalctl -u vpn-bot -n 100 --no-pager
+
+Handshake AWG не показывается
+
+Проверьте, что AWG доступен:
+
+
+which awg
+sudo awg show awg0 dump | head
+
+Если интерфейс не awg0, измените:
+
+
+AWG_INTERFACE=<your_interface>
+
+и перезапустите:
+
+
+sudo systemctl restart vpn-bot
+
 nginx не запускается
 
 sudo nginx -t
 sudo journalctl -u nginx -n 100 --no-pager
 
-bot не запускается
+vpn-bot не запускается
 
 sudo systemctl status vpn-bot --no-pager
 sudo journalctl -u vpn-bot -n 150 --no-pager
