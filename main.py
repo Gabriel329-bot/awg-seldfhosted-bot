@@ -1,6 +1,7 @@
 
 import asyncio
 import logging
+logging.getLogger("aiogram").setLevel(logging.DEBUG)
 
 from aiohttp import web
 
@@ -28,6 +29,7 @@ async def main() -> None:
     with SingleInstanceLock(settings.bot_lock_path):
         bot, dp, db, backend_health, services = await create_app(settings)
         runner: web.AppRunner | None = None
+        webapp_runner: web.AppRunner | None = None
         awg_stats_task: asyncio.Task[None] | None = None
         expiry_task: asyncio.Task[None] | None = None
         backup_task: asyncio.Task[None] | None = None
@@ -81,9 +83,19 @@ async def main() -> None:
                 runner = web.AppRunner(health_app)
                 await runner.setup()
                 site = web.TCPSite(runner, settings.health_host, settings.health_port)
-                await site.start()
+                await site.start()	
                 logger.info("Health check endpoint started on port %d", settings.health_port)
-            await services.warp.reset_runtime_state()
+
+            if settings.webapp_port is not None:
+                from webapp.app import create_webapp
+
+                webapp_app = create_webapp(settings, services, bot=bot)
+                webapp_runner = web.AppRunner(webapp_app)
+                await webapp_runner.setup()
+                webapp_site = web.TCPSite(webapp_runner, settings.webapp_host, settings.webapp_port)
+                await webapp_site.start()
+                logger.info("Telegram WebApp started on %s:%d", settings.webapp_host, settings.webapp_port)
+                await services.warp.reset_runtime_state()
             if await services.warp.is_enabled():
                 try:
                     await services.warp.start()
@@ -92,8 +104,14 @@ async def main() -> None:
                     logger.warning("WARP routing module autostart failed; continuing", exc_info=True)
             await bot.delete_webhook(drop_pending_updates=settings.bot_drop_pending_updates)
             logger.info("VPN bot started")
+            await bot.delete_webhook(drop_pending_updates=True)
             await dp.start_polling(bot)
         finally:
+            if webapp_runner is not None:
+                try:
+                    await webapp_runner.cleanup()
+                except Exception:
+                    logger.warning("Telegram WebApp shutdown failed", exc_info=True)
             if fsm_cleanup_task is not None:
                 fsm_cleanup_task.cancel()
                 await asyncio.gather(fsm_cleanup_task, return_exceptions=True)

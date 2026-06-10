@@ -47,7 +47,10 @@ async def start_command(message: Message, services: Services, bot: Bot, rate_lim
         if result.user.role in {UserRole.SUPERADMIN, UserRole.APPROVED_USER}:
             await message.answer(
                 main_menu_text(message.from_user),
-                reply_markup=main_menu(await is_admin(services, message.from_user.id)),
+                reply_markup=main_menu(
+                      await is_admin(services, message.from_user.id),
+                      webapp_url=services.settings.webapp_url,
+                  ),
             )
             return
 
@@ -59,7 +62,6 @@ async def start_command(message: Message, services: Services, bot: Bot, rate_lim
         else:
             await message.answer(t("request_pending"))
 
-        await _send_trial_offer(message, services, profile.telegram_user_id)
     except Exception as exc:
         await answer_message_error(message, exc)
 
@@ -85,6 +87,6 @@ async def _notify_admins(services: Services, bot: Bot, request_id: int, user_id:
     )
     for admin_id in services.settings.admin_ids:
         try:
-            await bot.send_message(admin_id, text, reply_markup=access_request_keyboard(request_id))
+            await bot.send_message(admin_id, text)
         except Exception:
             logger.warning("Failed to notify admin %s", admin_id, exc_info=True)

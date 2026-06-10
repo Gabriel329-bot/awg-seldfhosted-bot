@@ -130,8 +130,8 @@ class XrayService:
         clean_note = normalize_note(note)
 
         async with self.user_locks.lock(owner.telegram_user_id):
-            await self._ensure_can_create(actor_user_id, owner.telegram_user_id, allow_pending_owner=allow_pending_owner)
-            async with self._lock:
+                await self._ensure_can_create(actor_user_id, owner.telegram_user_id, allow_pending_owner=allow_pending_owner)
+                # async with self._lock:
                 await self._ensure_can_create(actor_user_id, owner.telegram_user_id, allow_pending_owner=allow_pending_owner)
                 uuid_value, email_label = await self._unique_identity(owner.telegram_user_id, owner.username)
                 short_id_managed = self.settings.xray_manage_short_ids
@@ -1026,8 +1026,14 @@ class XrayService:
         visible_note = key_note_for_viewer(key, viewer_user_id) if viewer_user_id is not None else None
         note = f"\nЗаметка: {h(visible_note)}" if visible_note else ""
         label = f"\nМетка: {h(email_label)}" if email_label else ""
+        try:
+            transport_type = self._key_transport(key) or "tcp"
+            transport_label = f"VLESS ({transport_type.upper()})"
+        except Exception:
+            transport_label = "VLESS"
+        
         return (
-            f"<b>Xray-ключ #{key.id}</b>\n"
+            f"<b>{transport_label}-ключ #{key.id}</b>\n"
             f"Статус: {status_text(key.status)}{label}{note}\n\n"
             f"{code(link)}"
         )

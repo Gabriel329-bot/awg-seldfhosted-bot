@@ -162,7 +162,7 @@ async def _build_app(
         )
         if settings.xray_xhttp_enabled
         else None
-    )
+  )
     xray_stats_adapter = XrayStatsAdapter(shell=shell, stats_server=settings.xray_stats_server)
     awg_adapter = AwgConfigAdapter(
         config_path=settings.awg_config_path,
@@ -429,14 +429,6 @@ async def _build_app(
     dp.callback_query.outer_middleware(ConfigDocumentCleanupMiddleware())
 
     dp.include_router(start.router)
-    dp.include_router(common.router)
-    dp.include_router(admin.router)
-    dp.include_router(admin_dashboard.router)
-    dp.include_router(admin_warp.router)
-    dp.include_router(admin_modules.router)
-    dp.include_router(keys.router)
-    dp.include_router(proxy.router)
-    dp.include_router(callbacks.router)
 
     return bot, dp, db, backend_health, services
 

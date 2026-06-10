@@ -232,6 +232,58 @@ class Socks5Service:
             )
             return await self._get_access(access.id)
 
+    async def revoke_own_socks5_proxy(self, actor_user_id: int, access_id: int, reason: str | None = None) -> ProxyAccess:
+        """Revoke the actor's own SOCKS5 proxy access."""
+        access = await self._get_access(access_id)
+        if access.access_type != ProxyAccessType.SOCKS5:
+            raise InvalidOperation("Это не SOCKS5-доступ")
+        if access.owner_user_id != actor_user_id:
+            raise AccessDenied("Нельзя отзывать чужой SOCKS5-доступ")
+        return await self._revoke_socks5_proxy(actor_user_id, access_id, reason or "user requested revoke")
+
+    async def delete_own_socks5_proxy(self, actor_user_id: int, access_id: int, reason: str | None = None) -> ProxyAccess:
+        """Delete the actor's own SOCKS5 proxy access and remove its backend user."""
+        await self.users.require_approved_or_admin(actor_user_id)
+        access = await self._get_access(access_id)
+        if access.access_type != ProxyAccessType.SOCKS5:
+            raise InvalidOperation("Это не SOCKS5-доступ")
+        if access.owner_user_id != actor_user_id:
+            raise AccessDenied("Нельзя удалять чужой SOCKS5-доступ")
+
+        async with self._lock:
+            access = await self._get_access(access_id)
+            if access.owner_user_id != actor_user_id:
+                raise AccessDenied("Нельзя удалять чужой SOCKS5-доступ")
+            if access.status == ProxyAccessStatus.DELETED:
+                return access
+
+            self.backend_health.require_mutation_allowed(ProxyAccessType.SOCKS5)
+            await self.accesses.set_status(access.id, ProxyAccessStatus.PENDING_DELETE, self.clock.now(), reason=reason)
+            login = str(access.payload.get("login") or "")
+            try:
+                if login:
+                    await self.adapter.delete_user(login)
+            except DanteUserNotFoundError:
+                pass
+            except Exception as exc:
+                await self.accesses.set_status(access.id, ProxyAccessStatus.DELETE_FAILED, self.clock.now(), error=str(exc), reason=reason)
+                await self._write_audit_best_effort(
+                    actor_user_id=actor_user_id,
+                    action="socks5_proxy_user_delete_failed",
+                    entity_id=access.id,
+                    details={"owner_user_id": access.owner_user_id, "login": login, "error": str(exc)},
+                )
+                raise
+
+            await self.accesses.mark_deleted(access.id, actor_user_id, self.clock.now(), reason=reason)
+            await self._write_audit_best_effort(
+                actor_user_id=actor_user_id,
+                action="socks5_proxy_user_deleted",
+                entity_id=access.id,
+                details={"owner_user_id": access.owner_user_id, "login": login, "reason": reason},
+            )
+            return await self._get_access(access.id)
+
     async def reconcile_socks5_state(self) -> dict[str, int]:
         """Idempotent startup reconcile: brings SOCKS5 DB state in line with the Linux user database.
 

@@ -1,0 +1,362 @@
+:root {
+  color-scheme: dark;
+  --bg: var(--tg-theme-bg-color, #0b1120);
+  --card: var(--tg-theme-secondary-bg-color, #111827);
+  --card-2: #0f172a;
+  --text: var(--tg-theme-text-color, #f8fafc);
+  --muted: var(--tg-theme-hint-color, #94a3b8);
+  --primary: var(--tg-theme-button-color, #2563eb);
+  --primary-text: var(--tg-theme-button-text-color, #ffffff);
+  --border: #263449;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --danger-dark: #7f1d1d;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 30%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.10), transparent 26%),
+    var(--bg);
+  color: var(--text);
+}
+
+.app {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px;
+  padding-bottom: 32px;
+}
+
+.card,
+.key-card,
+.instruction-card,
+.profile-card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015)), var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+
+.card h1,
+.card h2,
+.profile-card h3,
+.instruction-card h3 {
+  margin-top: 0;
+}
+
+.card h1 {
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.card h2 {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.tile {
+  min-height: 76px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, var(--primary), #1d4ed8);
+  color: var(--primary-text);
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.25);
+  cursor: pointer;
+}
+
+.tile:active,
+.small-button:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.tile.wide {
+  width: 100%;
+  display: block;
+  margin: 10px 0;
+}
+
+.key-card {
+  background: var(--card-2);
+}
+
+.key-card b {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 17px;
+}
+
+.muted {
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.actions-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.small-button {
+  border: 0;
+  border-radius: 14px;
+  padding: 11px 14px;
+  background: var(--success);
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.small-button.secondary {
+  background: #475569;
+}
+
+.small-button.danger {
+  background: var(--danger);
+}
+
+.small-button.danger-outline {
+  background: var(--danger-dark);
+}
+
+.small-button:disabled {
+  background: #334155;
+  color: var(--muted);
+}
+
+.label {
+  display: block;
+  margin: 12px 0 6px;
+  color: #cbd5e1;
+  font-weight: 800;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 13px;
+  background: #020617;
+  color: var(--text);
+  font-size: 16px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22);
+}
+
+.vpn-link,
+.config-box,
+.traffic-box {
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: #020617;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  margin: 10px 0;
+  color: #bfdbfe;
+  font-size: 13px;
+}
+
+.traffic-box {
+  color: #cbd5e1;
+}
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.profile-card h3 {
+  margin: 0 0 4px;
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--primary), #22c55e);
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.info-item {
+  background: #020617;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.info-item span {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.info-item b {
+  color: var(--text);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.badge.active,
+.badge.approved {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.badge.revoked,
+.badge.inactive {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+}
+
+.badge.failed,
+.badge.blocked,
+.badge.deleted {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+
+.badge.pending {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+}
+
+.instruction-card li {
+  margin: 7px 0;
+}
+
+.instruction-card code {
+  background: #020617;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 5px;
+  color: #bfdbfe;
+}
+
+@media (max-width: 520px) {
+  .app {
+    padding: 12px;
+  }
+
+  .grid,
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tile {
+    min-height: 62px;
+  }
+
+  .small-button {
+    width: 100%;
+  }
+
+  .actions-row .small-button {
+    flex: 1 1 100%;
+  }
+}
+
+body.admin-mode .grid {
+  display: none;
+}
+
+body.admin-mode .card:first-child {
+  display: none;
+}
+
+body.admin-mode .grid,
+body.admin-mode .card:first-child {
+  display: none;
+}
+
+body.screen-mode .hero,
+body.screen-mode .grid {
+  display: none;
+}
+
+body.screen-mode .app {
+  max-width: 760px;
+}
+
+body.screen-mode .card:last-child {
+  min-height: calc(100vh - 32px);
+  margin-bottom: 0;
+}
+
+.back-button {
+  margin-bottom: 14px;
+  width: auto;
+}
+
+body.screen-mode #section-title {
+  margin-top: 0;
+}
+
+body:not(.screen-mode) .card:last-child {
+  display: none;
+}
+
+body.screen-mode .card:last-child {
+  display: block;
+}
+
+body:not(.screen-mode) .card:last-child {
+  display: none;
+}
+
+body.screen-mode .card:last-child {
+  display: block;
+}
+
+.audit-details summary {
+  cursor: pointer;
+  color: var(--muted);
+  margin-top: 8px;
+  font-weight: 700;
+}

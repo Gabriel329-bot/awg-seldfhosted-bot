@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VPN кабинет</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <main class="app">
+    <section class="card">
+      <h1>VPN кабинет</h1>
+      <p id="user">Загрузка профиля...</p>
+    </section>
+
+    <section class="grid">
+      <button class="tile" data-section="profile">👤 Профиль</button>
+      <button class="tile" data-section="keys">🔑 Мои ключи</button>
+      <button class="tile" data-section="create">➕ Создать ключ</button>
+      <button class="tile" data-section="proxy">🌐 Прокси</button>
+      <button class="tile" data-section="help">❓ Помощь</button>
+    </section>
+
+    <section class="card">
+      <h2 id="section-title">Главная</h2>
+      <p id="section-body">Выберите раздел выше.</p>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script src="/static/admin-users.js"></script>
+  <script src="/static/admin-modules.js"></script>
+  <script src="/static/admin-user-keys.js?v=2"></script>
+  <script src="/static/admin-user-proxy.js?v=1"></script>
+  <script src="/static/admin-health.js?v=1"></script>
+  <script src="/static/admin-audit.js?v=1"></script>
+</body>
+</html>

@@ -4,6 +4,8 @@ from contextlib import suppress
 from dataclasses import replace
 from typing import Any
 
+from aiogram import F, types
+from services.hardware import get_hardware_stats
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
@@ -1335,22 +1337,25 @@ async def admin_issue_custom_days(message: Message, state: FSMContext, services:
         await answer_message_error(message, exc)
 
 
-@router.callback_query(AdminCreateKeyStates.confirming, F.data == "admin:cconfirm")
+@router.callback_query(F.data == "admin:cconfirm")
 async def admin_issue_confirm(callback: CallbackQuery, state: FSMContext, services: Services, rate_limiter: RateLimiter, bot: Bot) -> None:
     """Create the key for the chosen user and deliver its configuration."""
     if callback.from_user is None or callback.message is None:
         return
     if not await ensure_private_callback(callback, t("admin_private_only_text")):
         return
-    data = await state.get_data()
+   
     try:
-        owner_user_id = int(data["owner_user_id"])
-        key_type = str(data["key_type"])
+        data = await state.get_data()
+        owner_user_id = int(data.get("owner_user_id") or callback.from_user.id)
+        key_type = str(data.get("key_type") or "xray")
         transport = str(data.get("transport") or "tcp")
         note = data.get("note")
-        expires_at: str | None = data.get("expires_at")
-        mtu = int(data["mtu"]) if data.get("mtu") is not None else None
-        fingerprint: str | None = data.get("fingerprint")
+        expires_at = data.get("expires_at")
+        mtu = data.get("mtu")
+        if mtu is not None:
+            mtu = int(mtu)
+        fingerprint = data.get("fingerprint")
         owner_is_pending = bool(data.get("owner_is_pending", False))
         owner = await services.users.get_user(owner_user_id)
         await require_superadmin(services, callback.from_user.id)
@@ -1368,7 +1373,7 @@ async def admin_issue_confirm(callback: CallbackQuery, state: FSMContext, servic
             )
         elif key_type == VpnKeyType.AWG.value:
             result = await services.awg.create_awg_key(
-                callback.from_user.id, profile, note,
+	                callback.from_user.id, profile, note,
                 expires_at=expires_at,
                 allow_pending_owner=owner_is_pending,
                 mtu=mtu,
@@ -1390,9 +1395,10 @@ async def admin_issue_confirm(callback: CallbackQuery, state: FSMContext, servic
         if owner_is_pending:
             await _deliver_key_to_pending_user(bot, result, owner_user_id, plain_awg_config=plain_awg_config)
     except Exception as exc:
+        import traceback
+        error_message = f"❌ Ошибка в хэндлере:\n<code>{traceback.format_exc()}</code>"
+        await callback.message.answer(error_message, parse_mode="HTML")
         await answer_callback_error(callback, exc)
-
-
 async def _deliver_key_to_pending_user(bot: Bot, result: Any, user_id: int, plain_awg_config: str | None = None) -> None:
     try:
         if result.key.key_type == VpnKeyType.AWG:
@@ -1690,3 +1696,24 @@ def _simple_nav(
         keyboard.append(nav)
     keyboard.append([InlineKeyboardButton(text=t("btn_back"), callback_data=back_data)])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+# Вместо router может быть admin_router — посмотри, как назван объект Роутера в начале твоего файла
+@router.callback_query(F.data == "admin_hw_stats")
+async def show_hardware_status(callback: types.CallbackQuery):
+    # Отправляем всплывающее уведомление, чтобы админ видел, что бот не завис
+    await callback.answer("Собираю метрики железа...") 
+    
+    # Считаем статистику
+    status_text = await get_hardware_stats()
+    
+    keyboard = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [types.InlineKeyboardButton(text="⬅️ Назад в админку", callback_data="admin:panel")]
+        ]
+    )    
+    # Обновляем текст сообщения
+    await callback.message.edit_text(
+        text=status_text,
+        parse_mode="Markdown",
+        reply_markup=keyboard
+    )

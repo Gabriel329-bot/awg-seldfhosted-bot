@@ -130,6 +130,46 @@ class MtProtoService:
         )
         return await self._get_access(access.id)
 
+    async def revoke_own_mtproto_proxy(self, actor_user_id: int, access_id: int, reason: str | None = None) -> ProxyAccess:
+        """Revoke the actor's own MTProto proxy access."""
+        await self.users.require_approved_or_admin(actor_user_id)
+        access = await self._get_access(access_id)
+        if access.access_type != ProxyAccessType.MTPROTO:
+            raise InvalidOperation("Это не MTProto-доступ")
+        if access.owner_user_id != actor_user_id:
+            raise AccessDenied("Нельзя отзывать чужой MTProto-доступ")
+        return await self._revoke_mtproto_proxy(actor_user_id, access_id, reason or "user requested revoke")
+
+    async def delete_own_mtproto_proxy(self, actor_user_id: int, access_id: int, reason: str | None = None) -> ProxyAccess:
+        """Delete the actor's own MTProto proxy access."""
+        await self.users.require_approved_or_admin(actor_user_id)
+        access = await self._get_access(access_id)
+        if access.access_type != ProxyAccessType.MTPROTO:
+            raise InvalidOperation("Это не MTProto-доступ")
+        if access.owner_user_id != actor_user_id:
+            raise AccessDenied("Нельзя удалять чужой MTProto-доступ")
+
+        access = await self._revoke_mtproto_proxy(actor_user_id, access_id, reason or "user requested delete")
+        if access.status == ProxyAccessStatus.DELETED:
+            return access
+
+        self.backend_health.require_mutation_allowed(ProxyAccessType.MTPROTO)
+        async with self._apply_lock:
+            access = await self._get_access(access_id)
+            if access.owner_user_id != actor_user_id:
+                raise AccessDenied("Нельзя удалять чужой MTProto-доступ")
+            if access.status == ProxyAccessStatus.DELETED:
+                return access
+            await self.accesses.mark_deleted(access.id, actor_user_id, self.clock.now(), reason=reason)
+
+        await self._write_audit_best_effort(
+            actor_user_id=actor_user_id,
+            action="mtproto_proxy_user_deleted",
+            entity_id=access.id,
+            details={"owner_user_id": access.owner_user_id, "mode": self._access_mode(access), "reason": reason},
+        )
+        return await self._get_access(access.id)
+
     async def list_user_mtproto_accesses(self, actor_user_id: int) -> list[ProxyAccess]:
         """Return the user's MTProto proxy accesses."""
         await self.users.require_approved_or_admin(actor_user_id)

@@ -1,5 +1,5 @@
-
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from i18n import t
 from models.access import is_blocked_user
@@ -54,6 +54,10 @@ def dashboard_keyboard() -> InlineKeyboardMarkup:
 
 def admin_panel_keyboard() -> InlineKeyboardMarkup:
     """Build the full admin panel inline keyboard."""
+    
+    # Секретная ссылка ttyd с авторизацией (подставь свой логин и пароль вместо admin:GabrielMySecretPass123!)
+    secure_url = "https://82.47.169.145.sslip.io/ssh"
+    
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📊 Дашборд", callback_data="admin:dashboard")],
@@ -64,12 +68,17 @@ def admin_panel_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text=t("btn_key_stats"), callback_data="admin:stats")],
             [InlineKeyboardButton(text=t("btn_proxy_status"), callback_data="admin:proxy")],
             [InlineKeyboardButton(text=t("btn_announcement"), callback_data="admin:announce")],
+            [InlineKeyboardButton(text="📊 Статус сервера", callback_data="admin_hw_stats")],
             [InlineKeyboardButton(text=t("btn_warp"), callback_data="admin:warp")],
             [InlineKeyboardButton(text=t("btn_modules"), callback_data="admin:modules")],
             [InlineKeyboardButton(text=t("btn_backend_diagnostics"), callback_data="admin:diagnostics")],
             [InlineKeyboardButton(text=t("btn_action_logs"), callback_data="admin:audit")],
             [InlineKeyboardButton(text=t("btn_announcement_recovery"), callback_data="admin:announce_batches")],
             [InlineKeyboardButton(text=t("btn_db_backup"), callback_data="admin:backup")],
+            
+            # Наша новая кнопка WebApp терминала
+            [InlineKeyboardButton(text="🖥️ Терминал Сервера (VNC)", web_app=WebAppInfo(url=secure_url))],
+            
             [InlineKeyboardButton(text=t("btn_back_to_menu"), callback_data="menu:main")],
         ]
     )

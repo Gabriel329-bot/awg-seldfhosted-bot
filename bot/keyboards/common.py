@@ -1,6 +1,5 @@
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
-
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
 from i18n import t
 
 FAQ_TOPICS: list[tuple[str, str]] = [
@@ -23,16 +22,11 @@ FAQ_TOPICS: list[tuple[str, str]] = [
 FAQ_PER_PAGE = 5
 
 
-def main_menu(is_admin: bool = False) -> InlineKeyboardMarkup:
-    """Build the main menu inline keyboard, optionally with the admin panel entry."""
-    rows = [
-        [InlineKeyboardButton(text=t("btn_my_keys"), callback_data="keys:list")],
-        [InlineKeyboardButton(text=t("btn_create_key"), callback_data="keys:create")],
-        [InlineKeyboardButton(text=t("btn_proxy"), callback_data="proxy:show")],
-        [InlineKeyboardButton(text=t("btn_help"), callback_data="help")],
-    ]
-    if is_admin:
-        rows.append([InlineKeyboardButton(text=t("btn_admin_panel"), callback_data="admin:panel")])
+def main_menu(is_admin: bool = False, webapp_url: str = "") -> InlineKeyboardMarkup:
+    """Build WebApp-only inline keyboard."""
+    rows: list[list[InlineKeyboardButton]] = []
+    if webapp_url:
+        rows.append([InlineKeyboardButton(text="🌐 Открыть VPN кабинет", web_app=WebAppInfo(url=webapp_url))])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
