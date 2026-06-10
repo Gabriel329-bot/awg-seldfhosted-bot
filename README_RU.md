@@ -41,6 +41,7 @@ vpn-bot aiohttp WebApp :8088
   |
   v
 services / SQLite / Xray / AmneziaWG / Proxy
+```
 
 Рекомендуемая схема портов:
 

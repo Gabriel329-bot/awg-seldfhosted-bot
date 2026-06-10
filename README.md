@@ -1,4 +1,5 @@
 # VPN Telegram Bot
+> 🇷🇺 Русская документация: [README_RU.md](README_RU.md)
 
 Telegram bot for self-hosted VPN access management on an Ubuntu VDS. The bot manages users, access approval, Xray VLESS Reality keys, AmneziaWG keys, key revocation/deletion, audit records, and basic traffic statistics.
 
